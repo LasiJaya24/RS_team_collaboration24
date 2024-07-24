@@ -1,0 +1,36 @@
+import geopandas as gpd
+from arcgis.gis import GIS
+from arcgis.raster import ImageryLayer
+from arcgis.geometry import Geometry
+
+# Assuming your shapefile's name is "my_shapefile" and it is uploaded to Colab
+shapefile_path = '/content/buffer.shp'  # '/content' is the default directory in Colab
+gdf = gpd.read_file(shapefile_path)
+
+# Connect to GIS as an anonymous user
+gis = GIS("https://spatial.information.qld.gov.au/arcgis")
+
+# Get the ImageryLayer using the public elevation service item ID
+elevation_service_item_id = '278092282caf4a5ba77160df0d52f32e'  # replace with the actual item ID
+elevation_service_item = gis.content.get(elevation_service_item_id)
+elevation_layer = ImageryLayer(elevation_service_item.url, gis)
+
+# Use the bounds as the extent to export in the spatial reference of the image service
+extent_geom = {
+    "xmin": float(gdf.total_bounds[0]),
+    "ymin": float(gdf.total_bounds[1]),
+    "xmax": float(gdf.total_bounds[2]),
+    "ymax": float(gdf.total_bounds[3]),
+    "spatialReference": {"wkid": gdf.crs.to_epsg()} # Assume the shapefile has a valid EPSG code
+}
+
+# Attempt to export the imagery
+try:
+    # Use the export_image method with the extent and specify the output spatial reference
+    exported_img = elevation_layer.export_image(bbox=extent_geom, f='image', export_format="tiff", image_sr=3857, save_folder='.', save_file='exported_image4.tif')
+
+    # Print the path to the exported image
+    print("Exported image saved to:", 'exported_image4.tif')
+except Exception as e:
+    # Handle the exception
+    print("An error occurred:", e)
