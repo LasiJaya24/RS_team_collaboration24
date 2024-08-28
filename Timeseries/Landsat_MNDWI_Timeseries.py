@@ -4,6 +4,8 @@
 # 26/08/2024
 
 ### 1. Import modules
+print("Starting Landsat MNDWI Timeseries Update")
+print("1. Import modules")
 
 import ee
 import pandas as pd
@@ -12,17 +14,24 @@ from google.cloud import storage
 from google.oauth2 import service_account
 from io import BytesIO
 import time
+import sys
 
 ### 2. Initialize GEE with the service account credentials
+print("2. Initialising GEE")
 
-SERVICE_ACCOUNT_JSON = r'K:\Projects\GEE\Service Key\remote-sensing-420704-a195c59596e7.json'
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_JSON, 
-    scopes=["https://www.googleapis.com/auth/cloud-platform"]
-)
-ee.Initialize(credentials)
+try:
+    SERVICE_ACCOUNT_JSON = r'K:\Projects\GEE\Service Key\remote-sensing-420704-a195c59596e7.json'
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_JSON, 
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    ee.Initialize(credentials)
+except:
+    print("Initialisation failed")
+    sys.exit()
 
 ### 3. Declare variables
+print("3. Declaring variables")
 
 features = 'projects/remote-sensing-420704/assets/Waterbodies_qld_constructed'
 BUCKET = 'landsat_timeseries'
@@ -32,6 +41,7 @@ albers_projection = ee.Projection('EPSG:3577')
 output_filename = 'landsat_daily_mndwi_statistics.csv'
 
 ### 4. Define functions
+print("4. Defining functions")
 
 # Create a function to apply the correct cloud mask based on the available bands.
 def apply_cloud_mask(image):
@@ -120,40 +130,63 @@ def export_daily_stats(stats_feature_collection, description, bucket_name):
         fileFormat='CSV'
     )
     export_task.start()
-    print("Check Google Earth Engine for task status")
+    print("Finished - Check Google Earth Engine for task status")
 
 ### 5. Find last capture date
+print("5. Finding last capture date")
 
-# Initialize storage client
-storage_client = storage.Client.from_service_account_json(SERVICE_ACCOUNT_JSON)
-bucket = storage_client.get_bucket(BUCKET)
-blob = bucket.get_blob(output_filename)
-
-# Check if master CSV exists and extract last capture date
-if blob is not None:
-    # Download the contents of the blob as a string and convert it to a DataFrame
-    old_df = pd.read_csv(BytesIO(blob.download_as_string()), parse_dates=['date'])
-    start_date = (old_df['date'].max() + timedelta(days=1)).strftime('%Y-%m-%d')
-    end_date = date.today().strftime('%Y-%m-%d')
-    description = f'landsat_update_{datetime.now().strftime("%Y%m%d")}'
-else:
-    print("Master CSV file not found. Creating new file.")
-    # Analysis period
-    start_date = "1900-01-01"
-    end_date = "2024-08-01"
-    description = "landsat_daily_mndwi_statistics"
+try:
     
-### 6. Run timeseries of waterbodies
+    # Initialize storage client
+    storage_client = storage.Client.from_service_account_json(SERVICE_ACCOUNT_JSON)
+    bucket = storage_client.get_bucket(BUCKET)
+    blob = bucket.get_blob(output_filename)
 
-# Create the feature collection
-fc_server = ee.FeatureCollection(features)
-# Generate stats
-stats_collections = fc_server.map(time_series)
-# Flatten stats
-flattened_stats = ee.FeatureCollection(stats_collections.flatten())
+    # Check if master CSV exists and extract last capture date
+    if blob is not None:
+        # Download the contents of the blob as a string and convert it to a DataFrame    
+        old_df = pd.read_csv(BytesIO(blob.download_as_string()), parse_dates=['date'])
+        start_date = (old_df['date'].max() + timedelta(days=1)).strftime('%Y-%m-%d')
+        end_date = date.today().strftime('%Y-%m-%d')
+        description = f'landsat_update_{datetime.now().strftime("%Y%m%d")}'
+        print("   " + start_date)
+    else:
+        print("    Master CSV file not found. Creating new file.")
+        # Analysis period
+        start_date = "1900-01-01"
+        end_date = "2024-08-01"
+        description = "landsat_daily_mndwi_statistics"
+
+except:
+    print("Error: Storage bucket not found")
+    sys.exit()
+
+### 6. Run timeseries of waterbodies
+print("6. Create waterbody feature collection")
+
+try:
+    # Generate and export statistics
+    fc_server = ee.FeatureCollection(features)
+except:
+    print("Error: Waterbody features not found")
+    sys.exit()
+
+### 7. For each waterbody, calculate daily statistics
+print("7. Calculating daily statistics")
+
+try:
+    stats_collections = fc_server.map(time_series)
+    flattened_stats = ee.FeatureCollection(stats_collections.flatten())
+except:
+    print("Error: Calculating statistics failed")
+    sys.exit()
 
 ### 7. Export data to cloud bucket
+print("8. Exporting data to cloud bucket")
 
-# Start the export process
-export_daily_stats(flattened_stats, description, BUCKET)
-
+try:
+    # Start the export process
+    export_daily_stats(flattened_stats, description, BUCKET)
+except:
+    print("Error: Exporting statistics to cloud bucket failed")
+    sys.exit()
