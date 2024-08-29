@@ -1,10 +1,10 @@
-# Sentinel2 MNDWI Timeseries Update
+# Sentinel2 AWEI Timeseries Update
 # Created by Jason de Chastel
 # Remote Sensing Team
 # 26/08/2024
 
 ### 1. Import modules
-print("Starting Sentinel2 MNDWI Timeseries Update")
+print("Starting Sentinel2 AWEI Timeseries Update")
 print("1. Import modules")
 
 import ee
@@ -34,9 +34,9 @@ except:
 print("3. Declaring variables")
 
 features = 'projects/remote-sensing-420704/assets/Waterbodies_qld_constructed'
-output_filename = 'sentinel2_daily_mndwi_statistics.csv'
+output_filename = 'sentinel2_daily_awei_statistics.csv'
 uniqueid_field = "pfi"
-mdwiThresh = 0.1
+aweiThresh = 0
 BUCKET = "sentinel2_timeseries"
 albers_projection = ee.Projection('EPSG:3577')
 
@@ -50,16 +50,28 @@ def time_series(feature):
     def resample_to_10m(image):
         # Resample the SWIR band (B11) to 10m using bicubic interpolation
         b11_resampled = image.select('B11').resample('bicubic').reproject(crs=albers_projection, scale=10)
+        b12_resampled = image.select('B12').resample('bicubic').reproject(crs=albers_projection, scale=10)
         # Create a new image with the resampled B11 band and original 10m bands
-        return image.addBands(b11_resampled, overwrite=True)
+        return image.addBands([b11_resampled, b12_resampled], overwrite=True)
 
-    def calculate_stats(image):       
-        # Compute MNDWI using the resampled bands
-        mndwi = image.normalizedDifference(['B3', 'B11']).rename('MNDWI')                
-        # Mask the MNDWI image to include only water pixels
-        mndwi_mask = mndwi.gte(mdwiThresh).rename('MNDWI_Mask')        
+    def calculate_stats(image):
+        # Compute AWEI_ns using the resampled bands
+        awei_ns = image.expression(
+            "B2 + 2.5 * B3 - 1.5 * (B8 + B11) - 0.25 * B12", 
+            {
+                'B2': image.select('B3'),  # Green band
+                'B3': image.select('B4'),  # Red band
+                'B8': image.select('B8'),  # NIR band
+                'B11': image.select('B11'), # SWIR1 band
+                'B12': image.select('B12')  # SWIR2 band
+            }
+        ).rename('AWEI_ns')
+
+        # Mask the AWEI_ns image to include only water pixels
+        # Assume aweiThresh is defined elsewhere as the threshold value for water detection
+        awei_ns_mask = awei_ns.gte(aweiThresh).rename('AWEI_ns_Mask')        
         # Create a water pixel area image
-        water_pixel_area = mndwi_mask.multiply(ee.Image.pixelArea()).reproject(crs=albers_projection, scale=10).rename('MNDWI_Area')        
+        water_pixel_area = awei_ns_mask.multiply(ee.Image.pixelArea()).reproject(crs=albers_projection, scale=10).rename('AWEI_Area')        
         # Calculate cloud pixels and area
         cloud_mask = image.select('QA60').bitwiseAnd(1 << 10).Or(image.select('QA60').bitwiseAnd(1 << 11)).eq(1)
         cloud_area = cloud_mask.multiply(ee.Image.pixelArea()).rename('Cloud_Area')        
@@ -79,16 +91,16 @@ def time_series(feature):
             crs=albers_projection
         )
         # Calculate the percentage of water and cloud cover
-        water_percent = ee.Number(statistics.get('MNDWI_Area')).divide(statistics.get('Total_Area')).multiply(100)
+        water_percent = ee.Number(statistics.get('AWEI_Area')).divide(statistics.get('Total_Area')).multiply(100)
         cloud_percent = ee.Number(statistics.get('Cloud_Area')).divide(statistics.get('Total_Area')).multiply(100)
         # Compile a dictionary of statistics
         stats_dict = {
             'date': image.date().format('YYYY-MM-dd'),
             uniqueid_field: feature.get(uniqueid_field),
-            'mndwi_area': statistics.get('MNDWI_Area'),
+            'awei_area': statistics.get('AWEI_Area'),
             'cloud_area': statistics.get('Cloud_Area'),
             'total_area': statistics.get('Total_Area'),
-            'mndwi_percent': water_percent,
+            'awei_percent': water_percent,
             'cloud_percent': cloud_percent
         }
         return ee.Feature(None, stats_dict)    
@@ -128,14 +140,14 @@ try:
         old_df = pd.read_csv(BytesIO(blob.download_as_string()), parse_dates=['date'])
         start_date = (old_df['date'].max() + timedelta(days=1)).strftime('%Y-%m-%d')
         end_date = date.today().strftime('%Y-%m-%d')
-        description = f'sentinel2_update_{datetime.now().strftime("%Y%m%d")}'
+        description = f'sentinel2_daily_awei_update_{datetime.now().strftime("%Y%m%d")}'
         print("    " + start_date)    
     else:
         print("     Master CSV file not found. Creating new file.")
         # Analysis period
         start_date = "1900-01-01"
         end_date = "2030-01-01"
-        description = "sentinel2_daily_mndwi_statistics"
+        description = "sentinel2_daily_awei_statistics"
 
 except:
     print("Error: Storage bucket not found")
