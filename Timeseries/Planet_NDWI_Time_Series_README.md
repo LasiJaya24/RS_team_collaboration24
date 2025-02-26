@@ -22,11 +22,9 @@
 
     On running the script you will be presented with a simple form to complete.
 
-    ![NDWI script form](image.png)
-
     This form requires:
 
-    Job ID – Remote Sensing Job ID
+    Job ID – Remote Sensing Job ID  
     PFI – Persistent Feature Identifier
     Name – The name of the person running the script
     NDWI Threshold – Which can range from -1 to 1
