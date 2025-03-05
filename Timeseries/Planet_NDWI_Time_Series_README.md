@@ -13,7 +13,7 @@
     pytz	    2024.1
     rasterio	1.3.7
     XlsxWriter	3.2.0
-
+  
     Download:
 
     https://github.com/LasiJaya24/RS_team_collaboration24/blob/main/Timeseries/Planet_NDWI_Time_Series.ipynb
