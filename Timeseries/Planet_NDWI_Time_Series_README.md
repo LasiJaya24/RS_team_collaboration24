@@ -21,6 +21,8 @@
  - [Usage](#usage)
 
     On running the script you will be presented with a simple form to complete.
+   ![image](https://github.com/user-attachments/assets/2991ed3c-1b74-4506-8066-9f5efcc0a77b)
+
 
     This form requires:
 
