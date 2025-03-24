@@ -7,12 +7,19 @@
     Ensure the following Python modules are installed
 
     NumPy	    1.24.4
+  
     pandas	    2.0.3
+  
     GeoPandas	0.12.2
+  
     PIL	        9.5.0
+  
     pytz	    2024.1
+  
     rasterio	1.3.7
+  
     XlsxWriter	3.2.0
+  
   
     Download:
 
