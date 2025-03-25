@@ -139,11 +139,9 @@ Version 0.7 – 28/01/2025
 
 Added filter for shapefile selection  
 Add logic to cope with AnalyticMS_SR and AnalyticMS string replacement for syncing of udm2 files to true colour  
-Area and percentage of cloud, haze, and shadow now added  
-Showing plots of UDM mask with values for selected AOI  
+Area and percentage of cloud, haze, and shadow now added   
 Added index classified mask raster for values set above the user threshold and can have colour changed  
 Added ha calculation for area  
-Calculates negative values for NDVI water detection  
 Writes AEST date and time onto colour output  
 Converts UTC processing date to AEST date  
 
