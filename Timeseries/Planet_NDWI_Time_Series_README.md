@@ -1,4 +1,4 @@
-# Planet Labs Python Time Series
+# Planet Labs Python Time Series version 0.7
 
 ## Table of contents
 
